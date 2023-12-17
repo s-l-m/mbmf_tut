@@ -85,8 +85,8 @@ class DynaAgent(Environment):
             r  -- received reward
             s1 -- next state
         '''
-
-        # complete the code
+        #select row whose first two entries are [s, a] (i.e. which corresponds to the situation of action a in state s) and change the last two entries to [r, s1]
+        self.experience_buffer[s*self.num_actions + a, 2:4] = [r, s1]
 
         return None
 
@@ -104,6 +104,8 @@ class DynaAgent(Environment):
 
         # complete the code
 
+        self.Q[s, a] += self.alpha * (r + self.epsilon * bonus * np.sqrt(self.action_count[s, a]) + self.gamma * np.max(self.Q[s1, :]) - self.Q[s, a])
+
         return None
 
     def _update_action_count(self, s, a):
@@ -117,6 +119,8 @@ class DynaAgent(Environment):
         '''
 
         # complete the code
+        self.action_count += 1
+        self.action_count[s, a] = 0
 
         return None
 
@@ -145,9 +149,25 @@ class DynaAgent(Environment):
             a -- index of action to be chosen
         '''
 
-        # complete the code
+        # implementation of epsilon-greedy action choice for eps = 0.1
+        eps = 0.3
 
-        return None
+        if np.random.random() < eps:
+
+            a = np.random.randint(0,4)
+        
+        else:
+
+            max = np.max(self.Q[s, :])
+
+            if np.sum(self.Q[s, :] == max) > 1:
+                poss_act = np.nonzero(self.Q[s, :] == max)[0] # array of actions with maximal q value
+                a = np.random.choice(poss_act) # choose one of the actions with max. q value under randomly, equiprobably
+            
+            else: 
+                a = np.argmax(self.Q[s, :])
+
+        return a
 
     def _plan(self, num_planning_updates):
 
@@ -158,6 +178,22 @@ class DynaAgent(Environment):
         '''
 
         # complete the code
+        for id in range(num_planning_updates):
+
+            # choose state at random
+            state = np.random.choice(np.arange(self.num_states))
+            if state == self.goal_state:
+                state = self.start_state
+            
+            action = self._policy(state)
+            next_state = self.experience_buffer[state * self.num_actions + action, 3]
+            reward = self.experience_buffer[state * self.num_actions + action, 2]
+
+            if self.epsilon != 0: 
+                self._update_qvals(state, action, reward, next_state, bonus=True)
+            
+            else: 
+                self._update_qvals(state, action, reward, next_state, bonus=False)
 
         return None
 
@@ -196,7 +232,10 @@ class DynaAgent(Environment):
             # receive reward
             r  = self.R[self.s, a]
             # learning
-            self._update_qvals(self.s, a, r, s1, bonus=False)
+            if self.epsilon != 0: 
+                self._update_qvals(self.s, a, r, s1, bonus=True)
+            else: 
+                self._update_qvals(self.s, a, r, s1, bonus=False)
             # update world model 
             self._update_experience_buffer(self.s, a, r, s1)
             # reset action count
@@ -204,6 +243,7 @@ class DynaAgent(Environment):
             # update history
             self._update_history(self.s, a, r, s1)
             # plan
+            
             if num_planning_updates is not None:
                 self._plan(num_planning_updates)
 
