@@ -148,21 +148,26 @@ class DynaAgent(Environment):
         Output:
             a -- index of action to be chosen
         '''
-
-        # implementation of epsilon-greedy action choice for eps = 0.1
-        eps = 0.3
-
-        if np.random.random() < eps:
-
-            a = np.random.randint(0,4)
         
-        else:
+        if self.epsilon != 0: 
+            
+            qvals_plusbonus = self.Q[s,:] + self.epsilon * np.sqrt(self.action_count[s,:])
+            max = np.max(qvals_plusbonus)
 
+            if np.sum(qvals_plusbonus == max) > 1:
+                poss_act = np.nonzero(qvals_plusbonus == max)[0] # array of actions with maximal q value plus bonus
+                a = np.random.choice(poss_act) # choose one of the actions with max. q value randomly, equiprobably
+                
+            else: 
+                a = np.argmax(qvals_plusbonus)
+
+        else: 
+             
             max = np.max(self.Q[s, :])
 
             if np.sum(self.Q[s, :] == max) > 1:
                 poss_act = np.nonzero(self.Q[s, :] == max)[0] # array of actions with maximal q value
-                a = np.random.choice(poss_act) # choose one of the actions with max. q value under randomly, equiprobably
+                a = np.random.choice(poss_act) # choose one of the actions with max. q value randomly, equiprobably
             
             else: 
                 a = np.argmax(self.Q[s, :])
@@ -185,7 +190,7 @@ class DynaAgent(Environment):
             if state == self.goal_state:
                 state = self.start_state
             
-            action = self._policy(state)
+            action = np.random.choice(np.arange(4)) 
             next_state = self.experience_buffer[state * self.num_actions + action, 3]
             reward = self.experience_buffer[state * self.num_actions + action, 2]
 
@@ -232,10 +237,7 @@ class DynaAgent(Environment):
             # receive reward
             r  = self.R[self.s, a]
             # learning
-            if self.epsilon != 0: 
-                self._update_qvals(self.s, a, r, s1, bonus=True)
-            else: 
-                self._update_qvals(self.s, a, r, s1, bonus=False)
+            self._update_qvals(self.s, a, r, s1, bonus=False)
             # update world model 
             self._update_experience_buffer(self.s, a, r, s1)
             # reset action count
@@ -243,7 +245,6 @@ class DynaAgent(Environment):
             # update history
             self._update_history(self.s, a, r, s1)
             # plan
-            
             if num_planning_updates is not None:
                 self._plan(num_planning_updates)
 
